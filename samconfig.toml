@@ -1,0 +1,25 @@
+version = 0.1
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "kinesis-test"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-ffo3gfwkmpth"
+s3_prefix = "kinesis-test"
+region = "us-west-2"
+profile = "privadoMomentaneo"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+image_repositories = []
+disable_rollback = true
+parameter_overrides = "BucketName=\"gilbert-knf-success\" FirehoseDeliveryName=\"test\" FirehoseDeliveryType=\"DirectPut\" ErrorOutput=\"firehose/errors/\" PythonRuntime=\"python3.7\""
+[test.deploy.parameters]
+stack_name = "kinesis-test"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-ffo3gfwkmpth"
+s3_prefix = "kinesis-test"
+region = "us-west-2"
+profile = "privadoMomentaneo"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+image_repositories = []
+disable_rollback = true
+parameter_overrides = "SizeInMB=\"3\" IntervalSeconds=\"60\" BucketName=\"gilbert-knf-success\" FirehoseDeliveryName=\"test\" FirehoseDeliveryType=\"DirectPut\" ErrorOutput=\"firehose/errors/\" PythonRuntime=\"python3.7\""

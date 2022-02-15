@@ -1,0 +1,114 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  kinesis_firehose
+
+  Sample SAM Template for kinesis_firehose
+Parameters:
+  SizeInMB:
+    Type: Number
+    MinValue: 1
+    MaxValue: 128
+  IntervalSeconds:
+    Type: Number
+    MinValue: 60
+    MaxValue: 900
+  BucketName:
+    Type: String
+    Description: Enter the name for the destination bucket
+  FirehoseDeliveryName:
+    Type: String
+    MinLength: 1
+    MaxLength: 100
+    Description: The name for the delivery Stream
+  FirehoseDeliveryType:
+    Type: String
+    Default: DirectPut
+    AllowedValues:
+      - DirectPut
+      - KinesisStreamAsSource
+    Description: The Firehose Type of source
+  ErrorOutput:
+    Type: String
+    Description: The output prefix for errors on execution.
+  PythonRuntime:
+    Type: String
+    Default: python3.7
+    AllowedValues:
+      - python3.9
+      - python3.8
+      - python3.7
+      - python3.6
+      - python2.7
+Resources:
+  FirehoseRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: ''
+            Effect: Allow
+            Principal:
+              Service: firehose.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Policies:
+        - PolicyName: firehose_delivery_policy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 's3:AbortMultipartUpload'
+                  - 's3:GetBucketLocation'
+                  - 's3:GetObject'
+                  - 's3:ListBucket'
+                  - 's3:ListBucketMultipartUploads'
+                  - 's3:PutObject'
+                Resource: 
+                  - !Join ['',['arn:aws:s3:::', !Ref 'BucketName']]
+                  - !Join ['',['arn:aws:s3:::', !Ref 'BucketName', '/*']]
+  Firehose:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName: !Ref FirehoseDeliveryName
+      DeliveryStreamType: !Ref FirehoseDeliveryType
+      ExtendedS3DestinationConfiguration:
+        BucketARN: 
+          !Join
+            - ':'
+            - - 'arn:aws:s3::'
+              - !Ref BucketName
+        BufferingHints:
+          SizeInMBs: !Ref SizeInMB
+          IntervalInSeconds: !Ref IntervalSeconds
+        CompressionFormat: UNCOMPRESSED
+        ErrorOutputPrefix: !Ref ErrorOutput
+        RoleARN: !GetAtt FirehoseRole.Arn
+        DynamicPartitioningConfiguration:
+          Enabled: false
+        ProcessingConfiguration:
+          Enabled: false
+  LambdaFunctionOverHttps:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/app.function_handler
+      Runtime: !Ref PythonRuntime
+      Events:
+        HttpPost:
+          Type: Api
+          Properties:
+            Path: '/lambda'
+            Method: post
+      Policies:
+        - Statement:
+          - Sid: AllAccessToKinesisFirehose
+            Effect: Allow
+            Action:
+            - firehose:*
+            Resource: '*'
+Outputs:
+  StreamARN:
+    Description: "Stream ARN"
+    Value: !GetAtt Firehose.Arn
+  
