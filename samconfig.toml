@@ -22,4 +22,4 @@ confirm_changeset = true
 capabilities = "CAPABILITY_IAM"
 image_repositories = []
 disable_rollback = true
-parameter_overrides = "SizeInMB=\"3\" IntervalSeconds=\"60\" BucketName=\"gilbert-knf-success\" FirehoseDeliveryName=\"test\" FirehoseDeliveryType=\"DirectPut\" ErrorOutput=\"firehose/errors/\" PythonRuntime=\"python3.7\""
+parameter_overrides = "StreamName=\"PruebaKinesis\" SizeInMB=\"3\" IntervalSeconds=\"60\" BucketName=\"gilbert-knf-success\" FirehoseDeliveryName=\"test\" FirehoseDeliveryType=\"KinesisStreamAsSource\" ErrorOutput=\"firehose/errors/\" PythonRuntime=\"python3.7\""

@@ -31,15 +31,22 @@ Parameters:
   ErrorOutput:
     Type: String
     Description: The output prefix for errors on execution.
-  PythonRuntime:
+  RetentionPeriod:
+    Type: Number
+    Default: 24
+    MinValue: 24
+    MaxValue: 240
+  StreamName:
     Type: String
-    Default: python3.7
-    AllowedValues:
-      - python3.9
-      - python3.8
-      - python3.7
-      - python3.6
-      - python2.7
+    MinLength: 1
+    MaxLength: 100
+    Description: Enter the name for the destination bucket
+  Shards:
+    Type: Number
+    Default: 1
+    MinValue: 1
+    MaxValue: 8
+    Description: The name for the delivery Stream
 Resources:
   FirehoseRole:
     Type: AWS::IAM::Role
@@ -68,11 +75,18 @@ Resources:
                 Resource: 
                   - !Join ['',['arn:aws:s3:::', !Ref 'BucketName']]
                   - !Join ['',['arn:aws:s3:::', !Ref 'BucketName', '/*']]
+              - Effect: Allow
+                Action:
+                  - kinesis:*
+                Resource: "*"
   Firehose:
     Type: AWS::KinesisFirehose::DeliveryStream
     Properties:
       DeliveryStreamName: !Ref FirehoseDeliveryName
       DeliveryStreamType: !Ref FirehoseDeliveryType
+      KinesisStreamSourceConfiguration:
+        KinesisStreamARN: !GetAtt Stream.Arn
+        RoleARN: !GetAtt FirehoseRole.Arn
       ExtendedS3DestinationConfiguration:
         BucketARN: 
           !Join
@@ -89,26 +103,83 @@ Resources:
           Enabled: false
         ProcessingConfiguration:
           Enabled: false
-  LambdaFunctionOverHttps:
-    Type: AWS::Serverless::Function
+  KinesisRole:
+    Type: AWS::IAM::Role
     Properties:
-      Handler: src/app.function_handler
-      Runtime: !Ref PythonRuntime
-      Events:
-        HttpPost:
-          Type: Api
-          Properties:
-            Path: '/lambda'
-            Method: post
-      Policies:
-        - Statement:
-          - Sid: AllAccessToKinesisFirehose
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: ''
             Effect: Allow
+            Principal:
+              AWS: arn:aws:iam::177261743968:root
+            Action: 'sts:AssumeRole'
+            Condition:
+              StringEquals:
+                sts:ExternalId: 25c9857ccc0ef76292e0122fbb6e1fb07e0b2b4098c8a09f2b833628904e80d1bf0be601fa156301
+  PolicyForStream:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: stream_policy
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
             Action:
-            - firehose:*
-            Resource: '*'
+              - kinesis:PutRecord
+              - kinesis:PutRecords
+            Resource: !GetAtt Stream.Arn
+          - Effect: Allow
+            Action:
+              - kinesis:ListShards
+              - kinesis:DescribeLimits
+            Resource: "*"
+      Roles:
+        - !Ref KinesisRole
+
+  Stream: 
+    Type: AWS::Kinesis::Stream 
+    Properties: 
+        Name: !Ref StreamName 
+        RetentionPeriodHours: !Ref RetentionPeriod 
+        ShardCount: !Ref Shards
+  # ScheduledRule: 
+  #   Type: AWS::Events::Rule
+  #   Properties: 
+  #     Description: "ScheduledRule"
+  #     ScheduleExpression: "rate(10 minutes)"
+  #     State: "ENABLED"
+  #     Targets: 
+  #       - 
+  #         Arn: 
+  #           Fn::GetAtt: 
+  #             - "LambdaFunction"
+  #             - "Arn"
+  #         Id: "TargetFunctionV1"
+  # PermissionForEventsToInvokeLambda: 
+  #   Type: AWS::Lambda::Permission
+  #   Properties: 
+  #     FunctionName: !Ref "LambdaFunction"
+  #     Action: "lambda:InvokeFunction"
+  #     Principal: "events.amazonaws.com"
+  #     SourceArn: 
+  #       Fn::GetAtt: 
+  #         - "ScheduledRule"
+  #         - "Arn"
+  # LambdaFunction:
+  #   Type: AWS::Serverless::Function
+  #   Properties:
+  #     Handler: src/app.function_handler
+  #     Runtime: python3.7
+  #     Policies:
+  #       - Statement:
+  #         - Sid: AllAccessToKinesisSNS
+  #           Effect: Allow
+  #           Action:
+  #           - sns:*
+  #           Resource: '*'
 Outputs:
   StreamARN:
     Description: "Stream ARN"
-    Value: !GetAtt Firehose.Arn
+    Value: !GetAtt Stream.Arn
   
